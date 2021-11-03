@@ -13,8 +13,8 @@ import (
 )
 
 type category struct {
-	Id uint64
-	Name string
+	Id uint64 `json:"id"`
+	Name string `json:"name"`
 }
 
 func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
