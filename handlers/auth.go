@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net/http"
+	"os"
 )
 
 type authUser struct {
@@ -22,14 +23,14 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	var usr authUser
 	err := json.NewDecoder(r.Body).Decode(&usr)
 	if err != nil {
-		fmt.Errorf("Invalid request: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	conn, err := p.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +46,7 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	} else if err != nil {
-		fmt.Errorf("Unable to SELECT: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -53,7 +54,7 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(resUsr)
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -63,14 +64,14 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	var usr authUser
 	err := json.NewDecoder(r.Body).Decode(&usr)
 	if err != nil {
-		fmt.Errorf("Invalid request: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	conn, err := p.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -85,11 +86,11 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-			fmt.Errorf(pgErr.Message)
+			fmt.Fprintf(os.Stderr, pgErr.Message)
 			w.WriteHeader(400)
 			return
 		}
-		fmt.Errorf("Unable to INSERT: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -97,7 +98,7 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(map[string]interface{}{"id": id})
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(500)
 		return
 	}

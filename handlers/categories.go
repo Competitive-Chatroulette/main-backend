@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -19,7 +20,7 @@ type category struct {
 func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	conn, err := dbPool.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -27,7 +28,7 @@ func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request
 
 	rows, err := conn.Query(context.Background(), "SELECT id, name FROM categories")
 	if err != nil {
-		fmt.Errorf("Unable to SELECT all: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to SELECT all: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -36,7 +37,7 @@ func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request
 	for rows.Next() {
 		var _category category
 		if err = rows.Scan(&_category.Id, &_category.Name); err != nil {
-			fmt.Errorf("Unable to SELECT all: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Unable to SELECT all: %v\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -45,14 +46,14 @@ func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Errorf("Error while reading categories table: ", err)
+		fmt.Fprintf(os.Stderr, "Error while reading categories table: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(categories)
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -68,7 +69,7 @@ func GetCategory(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 
 	conn, err := dbPool.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -85,7 +86,7 @@ func GetCategory(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		fmt.Errorf("Unable to SELECT: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -93,7 +94,7 @@ func GetCategory(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(_category)
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

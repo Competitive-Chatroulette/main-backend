@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -20,7 +21,7 @@ type user struct {
 func ListUsers(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	conn, err := dbPool.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		http.Error(w, "DB is busy", 500)
 		return
 	}
@@ -28,7 +29,7 @@ func ListUsers(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 
 	rows, err := conn.Query(context.Background(), "SELECT id, name, email FROM users")
 	if err != nil {
-		fmt.Errorf("Unable to SELECT all: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to SELECT all: %v\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -38,7 +39,7 @@ func ListUsers(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		var usr user
 		err = rows.Scan(&usr.Id, &usr.Name, &usr.Email)
 		if err != nil {
-			fmt.Errorf("Unable to SELECT all: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Unable to SELECT all: %v\n", err)
 			w.WriteHeader(500)
 			return
 		}
@@ -49,7 +50,7 @@ func ListUsers(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(users)
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -65,7 +66,7 @@ func GetUser(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 
 	conn, err := dbPool.Acquire(context.Background())
 	if err != nil {
-		fmt.Errorf("Unable to acquire a database connection: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		http.Error(w, "DB is busy", 500)
 		return
 	}
@@ -82,7 +83,7 @@ func GetUser(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		fmt.Errorf("Unable to SELECT: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -90,7 +91,7 @@ func GetUser(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(usr)
 	if err != nil {
-		fmt.Errorf("Unable to encode json: %v", err)
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(500)
 		return
 	}
