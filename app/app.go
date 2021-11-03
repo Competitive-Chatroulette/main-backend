@@ -41,23 +41,23 @@ func (app *App) initRoutes() {
 
 	//USERS
 	usersR := app.r.PathPrefix("/users").Subrouter()
-	usersR.HandleFunc("/", withDbPool(app.p, handlers.ListUsers)).Methods("GET")
-	usersR.HandleFunc("/{id:[0-9]+}", withDbPool(app.p, handlers.GetUser)).Methods("GET")
+	usersR.HandleFunc("/", withPool(app.p, handlers.ListUsers)).Methods("GET")
+	usersR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetUser)).Methods("GET")
 
 	//CATEGORIES
 	categoriesR := app.r.PathPrefix("/categories").Subrouter()
-	categoriesR.HandleFunc("/", withDbPool(app.p, handlers.ListCategories)).Methods("GET")
-	categoriesR.HandleFunc("/{id:[0-9]+}", withDbPool(app.p, handlers.GetCategory)).Methods("GET")
+	categoriesR.HandleFunc("/", withPool(app.p, handlers.ListCategories)).Methods("GET")
+	categoriesR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetCategory)).Methods("GET")
 
 	//AUTH
 	authR := app.r.PathPrefix("/auth").Subrouter()
-	authR.HandleFunc("/signin", withDbPool(app.p, handlers.SignIn)).Methods("POST")
-	authR.HandleFunc("/signup", withDbPool(app.p, handlers.SignUp)).Methods("POST")
+	authR.HandleFunc("/signin", withPool(app.p, handlers.SignIn)).Methods("POST")
+	authR.HandleFunc("/signup", withPool(app.p, handlers.SignUp)).Methods("POST")
 
 	http.Handle("/", app.r)
 }
 
-func withDbPool(p *pgxpool.Pool, handler func(*pgxpool.Pool, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+func withPool(p *pgxpool.Pool, handler func(*pgxpool.Pool, http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler(p, w, r)
 	}

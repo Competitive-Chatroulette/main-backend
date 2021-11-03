@@ -43,11 +43,11 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	var resUsr user
 	err = row.Scan(&resUsr.Id, &resUsr.Name, &resUsr.Email)
 	if err == pgx.ErrNoRows {
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	} else if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -55,7 +55,7 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(resUsr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -87,11 +87,11 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
 			fmt.Fprintf(os.Stderr, pgErr.Message)
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -99,7 +99,7 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(map[string]interface{}{"id": id})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
