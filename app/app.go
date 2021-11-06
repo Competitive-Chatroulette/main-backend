@@ -5,7 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
-	"mmr/handlers"
+	"mmr/app/handlers"
 	"net/http"
 	"os"
 )
@@ -62,4 +62,3 @@ func withPool(p *pgxpool.Pool, handler func(*pgxpool.Pool, http.ResponseWriter, 
 		handler(p, w, r)
 	}
 }
-
