@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 	"mmr/app/handlers"
+	"mmr/app/middleware"
 	"net/http"
 	"os"
 )
@@ -39,10 +40,10 @@ func (app *App) initDb() {
 func (app *App) initRoutes() {
 	app.r = mux.NewRouter()
 
-	//USERS
-	usersR := app.r.PathPrefix("/users").Subrouter()
-	usersR.HandleFunc("/", withPool(app.p, handlers.ListUsers)).Methods("GET")
-	usersR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetUser)).Methods("GET")
+	//USER
+	userR := app.r.PathPrefix("/user").Subrouter()
+	userR.Use(middleware.Authentication)
+	userR.HandleFunc("/", withPool(app.p, handlers.GetUser)).Methods("GET")
 
 	//CATEGORIES
 	categoriesR := app.r.PathPrefix("/categories").Subrouter()
@@ -57,7 +58,9 @@ func (app *App) initRoutes() {
 	http.Handle("/", app.r)
 }
 
-func withPool(p *pgxpool.Pool, handler func(*pgxpool.Pool, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+type appHandlerFunc func(*pgxpool.Pool, http.ResponseWriter, *http.Request)
+
+func withPool(p *pgxpool.Pool, handler appHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler(p, w, r)
 	}
