@@ -5,24 +5,33 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"mmr/app/models"
+	"mmr/shared"
 	"net/http"
 	"os"
 	"time"
 )
 
 func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
-	//TODO:validate required fields
 	//serialize user
 	var usr models.User
 	err := json.NewDecoder(r.Body).Decode(&usr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//validate user
+	err = shared.Validate.Struct(usr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -82,12 +91,19 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 }
 
 func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
-	//TODO:validate required fields
 	//serialize user
 	var usr models.User
 	err := json.NewDecoder(r.Body).Decode(&usr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//validate user
+	err = shared.Validate.Struct(usr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

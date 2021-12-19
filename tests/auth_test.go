@@ -68,8 +68,8 @@ func (_db *db) ClearDb() {
 	conn, release := _db.GetConn()
 	defer release()
 
-	tag, err := conn.Exec(context.Background(), "DELETE FROM users WHERE email=$1", validUser.Email)
-	if err != nil || tag.RowsAffected() == 0 {
+	_, err := conn.Exec(context.Background(), "DELETE FROM users WHERE email=$1", validUser.Email)
+	if err != nil {
 		_db.t.Fatal("Could not cleanup user", err)
 	}
 }

@@ -46,9 +46,9 @@ func (app *App) initRoutes() {
 	userR.HandleFunc("/", withPool(app.p, handlers.GetUser)).Methods("GET")
 
 	//CATEGORIES
-	categoriesR := app.r.PathPrefix("/categories").Subrouter()
-	categoriesR.HandleFunc("/", withPool(app.p, handlers.ListCategories)).Methods("GET")
-	categoriesR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetCategory)).Methods("GET")
+	categR := app.r.PathPrefix("/categories").Subrouter()
+	categR.HandleFunc("/", withPool(app.p, handlers.ListCategories)).Methods("GET")
+	categR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetCategory)).Methods("GET")
 
 	//AUTH
 	authR := app.r.PathPrefix("/auth").Subrouter()

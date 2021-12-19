@@ -1,12 +1,14 @@
 package models
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"golang.org/x/crypto/bcrypt"
+)
 
 type User struct {
 	Id    uint64 `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Email string `json:"email,omitempty"`
-	Pass  string `json:"pass,omitempty"`
+	Name  string `json:"name,omitempty" validate:"lte=20"`
+	Email string `json:"email,omitempty" validate:"required,email"`
+	Pass  string `json:"pass,omitempty" validate:"required,gte=6"`
 }
 
 func (usr *User) HashPass(pass string) error {
