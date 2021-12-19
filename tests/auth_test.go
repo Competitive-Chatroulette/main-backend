@@ -134,7 +134,7 @@ func TestSignup(t *testing.T) {
 
 	_db := &db{}
 	_db.Init(t)
-	defer _db.ClearDb()
+	t.Cleanup(_db.ClearDb)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
@@ -221,7 +221,7 @@ func TestSignin(t *testing.T) {
 
 	_db := &db{}
 	_db.Init(t)
-	defer _db.ClearDb()
+	t.Cleanup(_db.ClearDb)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
