@@ -20,16 +20,14 @@ import (
 func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 	//serialize user
 	var usr models.User
-	err := json.NewDecoder(r.Body).Decode(&usr)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	//validate user
-	err = shared.Validate.Struct(usr)
-	if err != nil {
+	if err := shared.Validate.Struct(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -48,8 +46,7 @@ func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	//serialize db user or return 401 if they don't exist
 	var dbUsr models.User
-	err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass)
-	if err == pgx.ErrNoRows {
+	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	} else if err != nil {
@@ -59,8 +56,7 @@ func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate password
-	err = dbUsr.ValidatePass(usr.Pass)
-	if err != nil {
+	if err = dbUsr.ValidatePass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "Pass is not correct: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -76,8 +72,7 @@ func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	//marshal and return jwt
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err = json.NewEncoder(w).Encode(tokenString)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(tokenString); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -87,24 +82,21 @@ func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 func (a *App) SignUp(w http.ResponseWriter, r *http.Request) {
 	//serialize user
 	var usr models.User
-	err := json.NewDecoder(r.Body).Decode(&usr)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	//validate user
-	err = shared.Validate.Struct(usr)
-	if err != nil {
+	if err := shared.Validate.Struct(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	//generate salted pass hash
-	err = usr.HashPass(usr.Pass)
-	if err != nil {
+	if err := usr.HashPass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "Can't hash the password: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -123,8 +115,7 @@ func (a *App) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	//check if insert was successful
 	var id int32
-	err = row.Scan(&id)
-	if err != nil {
+	if err = row.Scan(&id); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			w.WriteHeader(http.StatusConflict)

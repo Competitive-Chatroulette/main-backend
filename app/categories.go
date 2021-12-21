@@ -49,8 +49,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err = json.NewEncoder(w).Encode(categories)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(categories); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -77,8 +76,7 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 		"SELECT id, name FROM categories WHERE id = $1", id)
 
 	var category models.Category
-	err = row.Scan(&category.Id, &category.Name)
-	if err == pgx.ErrNoRows {
+	if err = row.Scan(&category.Id, &category.Name); err == pgx.ErrNoRows {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -88,8 +86,7 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err = json.NewEncoder(w).Encode(category)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(category); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return

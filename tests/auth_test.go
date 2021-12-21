@@ -182,8 +182,7 @@ func countUsers(conn *pgxpool.Conn, t *testing.T) int {
 	row := conn.QueryRow(context.Background(),
 		"SELECT COUNT(id) FROM users")
 	var usrCount int
-	err := row.Scan(&usrCount)
-	if err != nil {
+	if err := row.Scan(&usrCount); err != nil {
 		t.Fatal("Unable to get user count from db", err)
 	}
 

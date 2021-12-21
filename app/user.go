@@ -24,8 +24,7 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 		"SELECT id, name, email FROM users WHERE id = $1", id)
 
 	var usr models.User
-	err = row.Scan(&usr.Id, &usr.Name, &usr.Email)
-	if err == pgx.ErrNoRows {
+	if err = row.Scan(&usr.Id, &usr.Name, &usr.Email); err == pgx.ErrNoRows {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -35,8 +34,7 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err = json.NewEncoder(w).Encode(usr)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
