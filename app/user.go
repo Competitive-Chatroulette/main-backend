@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	gcontext "mmr/context"
 	"mmr/models"
 	"net/http"
 	"os"
@@ -19,7 +20,7 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Release()
 
-	id := r.Context().Value("user_id")
+	id := gcontext.GetUserID(r.Context())
 	row := conn.QueryRow(context.Background(),
 		"SELECT id, name, email FROM users WHERE id = $1", id)
 

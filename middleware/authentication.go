@@ -1,11 +1,12 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
 	"github.com/golang-jwt/jwt"
+	gcontext "mmr/context"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -44,8 +45,7 @@ func Authentication(next http.Handler) http.Handler {
 
 		//extract id and put in context
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			type userId string
-			ctx := context.WithValue(r.Context(), userId("user_id"), claims["user_id"])
+			ctx := gcontext.WithUserID(r.Context(), strconv.FormatInt(int64(claims["user_id"].(float64)), 10)) //TODO: type assertion and double conversion in the same line is ridiculous
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)
