@@ -5,8 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
-	"mmr/app/handlers"
-	"mmr/app/middleware"
+	"mmr/middleware"
 	"net/http"
 	"os"
 )
@@ -23,45 +22,37 @@ func NewApp() *App {
 	return app
 }
 
-func (app *App) Run() {
-	defer app.p.Close()
+func (a *App) Run() {
+	defer a.p.Close()
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func (app *App) initDb() {
+func (a *App) initDb() {
 	p, err := pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal("Unable to connect to database:", err)
 	}
 
-	app.p = p
+	a.p = p
 }
 
-func (app *App) initRoutes() {
-	app.r = mux.NewRouter()
+func (a *App) initRoutes() {
+	a.r = mux.NewRouter()
 
 	//USER
-	userR := app.r.PathPrefix("/user").Subrouter()
+	userR := a.r.PathPrefix("/user").Subrouter()
 	userR.Use(middleware.Authentication)
-	userR.HandleFunc("/", withPool(app.p, handlers.GetUser)).Methods("GET")
+	userR.HandleFunc("/", a.GetUser).Methods("GET")
 
 	//CATEGORIES
-	categR := app.r.PathPrefix("/categories").Subrouter()
-	categR.HandleFunc("/", withPool(app.p, handlers.ListCategories)).Methods("GET")
-	categR.HandleFunc("/{id:[0-9]+}", withPool(app.p, handlers.GetCategory)).Methods("GET")
+	categR := a.r.PathPrefix("/categories").Subrouter()
+	categR.HandleFunc("/", a.ListCategories).Methods("GET")
+	categR.HandleFunc("/{id:[0-9]+}", a.GetCategory).Methods("GET")
 
 	//AUTH
-	authR := app.r.PathPrefix("/auth").Subrouter()
-	authR.HandleFunc("/signin", withPool(app.p, handlers.SignIn)).Methods("POST")
-	authR.HandleFunc("/signup", withPool(app.p, handlers.SignUp)).Methods("POST")
+	authR := a.r.PathPrefix("/auth").Subrouter()
+	authR.HandleFunc("/signin", a.SignIn).Methods("POST")
+	authR.HandleFunc("/signup", a.SignUp).Methods("POST")
 
-	http.Handle("/", app.r)
-}
-
-type appHandlerFunc func(*pgxpool.Pool, http.ResponseWriter, *http.Request)
-
-func withPool(p *pgxpool.Pool, handler appHandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		handler(p, w, r)
-	}
+	http.Handle("/", a.r)
 }

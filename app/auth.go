@@ -1,4 +1,4 @@
-package handlers
+package app
 
 import (
 	"context"
@@ -10,15 +10,14 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"mmr/app/models"
+	"mmr/models"
 	"mmr/shared"
 	"net/http"
 	"os"
 	"time"
 )
 
-func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
+func (a *App) SignIn(w http.ResponseWriter, r *http.Request) {
 	//serialize user
 	var usr models.User
 	err := json.NewDecoder(r.Body).Decode(&usr)
@@ -37,7 +36,7 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	//find the user in db
-	conn, err := p.Acquire(context.Background())
+	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -48,8 +47,8 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		"SELECT id, name, email, pass FROM users WHERE email = $1", usr.Email)
 
 	//serialize db user or return 401 if they don't exist
-	var resUsr models.User
-	err = row.Scan(&resUsr.Id, &resUsr.Name, &resUsr.Email, &resUsr.Pass)
+	var dbUsr models.User
+	err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass)
 	if err == pgx.ErrNoRows {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -60,27 +59,22 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate password
-	err = resUsr.ValidatePass(usr.Pass)
+	err = dbUsr.ValidatePass(usr.Pass)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Pass is not correct: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	resUsr.Pass = "" //remove password hash from the user object we are returning
 
-	//generate and sign jwt token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": resUsr.Id,
-		"nbf":     time.Now().Unix(),
-	})
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	//generate and sign jwt
+	tokenString, err := genToken(dbUsr.Id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	//marshal and return jwt token
+	//marshal and return jwt
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(tokenString)
 	if err != nil {
@@ -90,7 +84,7 @@ func SignIn(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
+func (a *App) SignUp(w http.ResponseWriter, r *http.Request) {
 	//serialize user
 	var usr models.User
 	err := json.NewDecoder(r.Body).Decode(&usr)
@@ -117,7 +111,7 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	}
 
 	//add user to db, get their id
-	conn, err := p.Acquire(context.Background())
+	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -127,7 +121,8 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 	row := conn.QueryRow(context.Background(),
 		"INSERT INTO users(name, email, pass) VALUES ($1, $2, $3) RETURNING id", usr.Name, usr.Email, usr.Pass)
 
-	var id int
+	//check if insert was successful
+	var id int32
 	err = row.Scan(&id)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -142,23 +137,26 @@ func SignUp(p *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//generate and sign jwt token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": id,
-		"nbf":     time.Now().Unix(),
-	})
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	tokenString, err := genToken(id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	//marshal and return jwt token
+	//marshal and return jwt
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	err = json.NewEncoder(w).Encode(tokenString)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 	}
+}
+
+func genToken(id int32) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": id,
+		"exp":     time.Now().Add(time.Minute * 15).Unix(),
+	})
+	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }

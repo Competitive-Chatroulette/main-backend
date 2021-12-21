@@ -1,4 +1,4 @@
-package handlers
+package app
 
 import (
 	"context"
@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"mmr/app/models"
+	"mmr/models"
 	"net/http"
 	"os"
 	"strconv"
 )
 
-func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
-	conn, err := dbPool.Acquire(context.Background())
+func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
+	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -58,7 +57,7 @@ func ListCategories(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request
 	}
 }
 
-func GetCategory(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
+func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
@@ -66,7 +65,7 @@ func GetCategory(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := dbPool.Acquire(context.Background())
+	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)

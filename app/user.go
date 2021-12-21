@@ -1,18 +1,17 @@
-package handlers
+package app
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"mmr/app/models"
+	"mmr/models"
 	"net/http"
 	"os"
 )
 
-func GetUser(dbPool *pgxpool.Pool, w http.ResponseWriter, r *http.Request) {
-	conn, err := dbPool.Acquire(context.Background())
+func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
+	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		http.Error(w, "DB is busy", http.StatusInternalServerError)

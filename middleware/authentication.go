@@ -44,7 +44,8 @@ func Authentication(next http.Handler) http.Handler {
 
 		//extract id and put in context
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			ctx := context.WithValue(r.Context(), "user_id", claims["user_id"])
+			type userId string
+			ctx := context.WithValue(r.Context(), userId("user_id"), claims["user_id"])
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)

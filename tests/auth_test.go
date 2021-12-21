@@ -5,83 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"golang.org/x/crypto/bcrypt"
-	"mmr/app/handlers"
+	"mmr/app"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
-type testUser struct {
-	Name  string `json:"name"`
-	Email string `json:"email,omitempty"`
-	Pass  string `json:"pass"`
-}
-
-var validUser = testUser{
-	Name:  "cool guy",
-	Email: "valid_test@test.com",
-	Pass:  "123456",
-}
-
-type db struct {
-	P *pgxpool.Pool
-	t *testing.T
-}
-
-func (_db *db) Init(t *testing.T) {
-	_db.t = t
-	_db.initP()
-	_db.fillDb()
-}
-
-func (_db *db) initP() {
-	p, err := pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	if err != nil {
-		_db.t.Fatal("Unable to connect to database:", err)
-	}
-
-	_db.P = p
-}
-
-func (_db *db) GetConn() (*pgxpool.Conn, func()) {
-	conn, err := _db.P.Acquire(context.Background())
-	if err != nil {
-		_db.t.Fatal(err)
-	}
-	return conn, conn.Release
-}
-
-func (_db *db) fillDb() {
-	conn, release := _db.GetConn()
-	defer release()
-
-	pass := hashPass(validUser.Pass, _db.t)
-	_, err := conn.Exec(context.Background(), "INSERT INTO users(name, email, pass) VALUES($1, $2, $3)", validUser.Name, validUser.Email, pass)
-	if err != nil {
-		_db.t.Fatal("Could not insert user", err)
-	}
-}
-
-func (_db *db) ClearDb() {
-	conn, release := _db.GetConn()
-	defer release()
-
-	_, err := conn.Exec(context.Background(), "DELETE FROM users WHERE email=$1", validUser.Email)
-	if err != nil {
-		_db.t.Fatal("Could not cleanup user", err)
-	}
-}
-
-func hashPass(pass string, t *testing.T) string {
-	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
-	if err != nil {
-		t.Fatal("Can't hash the password: ", err)
-	}
-
-	return string(hash)
-}
+var a = app.NewApp()
 
 func TestSignup(t *testing.T) {
 	tt := []struct {
@@ -133,12 +63,12 @@ func TestSignup(t *testing.T) {
 	}
 
 	_db := &db{}
-	_db.Init(t)
-	t.Cleanup(_db.ClearDb)
+	_db.init(t)
+	t.Cleanup(_db.clearDb)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			conn, release := _db.GetConn()
+			conn, release := _db.getConn()
 			defer release()
 
 			usersBefore := countUsers(conn, t)
@@ -151,7 +81,7 @@ func TestSignup(t *testing.T) {
 			request := httptest.NewRequest(tc.method, "/auth/signup", bytes.NewReader(body))
 			responseRecorder := httptest.NewRecorder()
 
-			handlers.SignUp(_db.P, responseRecorder, request)
+			a.SignUp(responseRecorder, request)
 			defer conn.Exec(context.Background(), "DELETE FROM users WHERE email = $1", tc.user.Email)
 
 			//Status is correct
@@ -220,8 +150,8 @@ func TestSignin(t *testing.T) {
 	}
 
 	_db := &db{}
-	_db.Init(t)
-	t.Cleanup(_db.ClearDb)
+	_db.init(t)
+	t.Cleanup(_db.clearDb)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
@@ -233,7 +163,7 @@ func TestSignin(t *testing.T) {
 			request := httptest.NewRequest(tc.method, "/auth/signin", bytes.NewReader(body))
 			responseRecorder := httptest.NewRecorder()
 
-			handlers.SignIn(_db.P, responseRecorder, request)
+			a.SignIn(responseRecorder, request)
 
 			//Status is correct
 			if responseRecorder.Code != tc.statusCode {
