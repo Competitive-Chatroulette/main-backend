@@ -79,7 +79,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//generate and sign jwt
-	tp, err := genTokenPair(dbUsr.Id)
+	tp, err := genTokenPair()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -156,7 +156,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//generate token pair
-	tp, err := genTokenPair(id)
+	tp, err := genTokenPair()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -205,7 +205,7 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := gcontext.GetUserID(r.Context())
-	tp, err := genTokenPair(userID)
+	tp, err := genTokenPair()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -231,15 +231,15 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func genTokenPair(userId int32) (*tokenPair, error) {
+func genTokenPair() (*tokenPair, error) {
 	tp := &tokenPair{}
-	at, err := genToken(userId, time.Now().Add(time.Minute*15))
+	at, err := genToken(time.Now().Add(time.Minute * 15))
 	if err != nil {
 		return nil, err
 	}
 	tp.at = at
 
-	rt, err := genToken(userId, time.Now().Add(time.Hour*24*7))
+	rt, err := genToken(time.Now().Add(time.Hour * 24 * 7))
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func genTokenPair(userId int32) (*tokenPair, error) {
 	return tp, nil
 }
 
-func genToken(userId int32, expires time.Time) (*tokenDetails, error) {
+func genToken(expires time.Time) (*tokenDetails, error) {
 	td := &tokenDetails{}
 	td.expires = expires.Unix()
 	td.uuid = uuid.NewString()
