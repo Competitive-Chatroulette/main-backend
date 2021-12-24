@@ -96,7 +96,7 @@ func TestRegister(t *testing.T) {
 			}
 
 			//User was added to DB
-			usersAfter := countUsers(conn, t) //TODO: another test goroutine could add a user before this call
+			usersAfter := countUsers(conn, t) //TODO: another test goroutine could insert a user before this call
 			if (tc.willAdd && usersBefore+1 != usersAfter) ||
 				(!tc.willAdd && usersBefore != usersAfter) {
 				t.Errorf("Unexpected user count. Users before '%d', users after '%d'", usersBefore, usersAfter)

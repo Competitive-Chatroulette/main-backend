@@ -21,7 +21,7 @@ var validUser = testUser{
 }
 
 type db struct {
-	P *pgxpool.Pool
+	p *pgxpool.Pool
 	t *testing.T
 }
 
@@ -37,11 +37,11 @@ func (_db *db) initP() {
 		_db.t.Fatal("Unable to connect to database:", err)
 	}
 
-	_db.P = p
+	_db.p = p
 }
 
 func (_db *db) getConn() (*pgxpool.Conn, func()) {
-	conn, err := _db.P.Acquire(context.Background())
+	conn, err := _db.p.Acquire(context.Background())
 	if err != nil {
 		_db.t.Fatal(err)
 	}

@@ -40,7 +40,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//find the user in db
+	//find user in db
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
@@ -51,7 +51,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	row := conn.QueryRow(context.Background(),
 		"SELECT id, name, email, pass FROM users WHERE email = $1", usr.Email)
 
-	//serialize db user or return 401 if they don't exist
+	//marshal db user or return 401 if none was found
 	var dbUsr models.User
 	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
 		http.Error(w, "", http.StatusUnauthorized)
@@ -64,7 +64,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 
 	//validate password
 	if err = dbUsr.ValidatePass(usr.Pass); err != nil {
-		fmt.Fprintf(os.Stderr, "Pass is not correct: %v\n", err)
+		fmt.Fprintf(os.Stderr, "incorrect password : %v\n", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -73,7 +73,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
-	//get the user from request body
+	//get user from request body
 	usr, err := getUser(w, r)
 	if err != nil {
 		return
@@ -96,8 +96,6 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	defer conn.Release()
 	row := conn.QueryRow(context.Background(),
 		"INSERT INTO users(name, email, pass) VALUES ($1, $2, $3) RETURNING id", usr.Name, usr.Email, usr.Pass)
-
-	//check if insert was successful
 	var id int32
 	if err = row.Scan(&id); err != nil {
 		var pgErr *pgconn.PgError
@@ -281,7 +279,7 @@ func (a *App) withToken(next http.Handler) http.Handler {
 func (a *App) withClaims(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := gcontext.GetJwt(r.Context())
-		if token == nil {
+		if token == nil { //TODO: In what world does this happen
 			fmt.Fprintf(os.Stderr, "Token didn't reach middleware: %v", token)
 			http.Error(w, "", http.StatusInternalServerError)
 			return
@@ -303,7 +301,7 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			return
 		}
 
-		//
+		//get userID from redis
 		userIDStr, err := a.rdb.Get(context.Background(), uuid).Result()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Access token invalid: %v", err)
