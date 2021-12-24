@@ -29,7 +29,7 @@ func TestRegister(t *testing.T) {
 				Pass:  "123456",
 			},
 			willAdd:    true,
-			statusCode: http.StatusCreated,
+			statusCode: http.StatusOK,
 		},
 		{
 			name:       "with duplicate email",

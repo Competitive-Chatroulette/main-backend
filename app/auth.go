@@ -34,18 +34,9 @@ type tokenDetails struct {
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
-	//unmarshal user
-	var usr models.User
-	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
-		http.Error(w, "", http.StatusBadRequest)
-		return
-	}
-
-	//validate user
-	if err := shared.Validate.Struct(usr); err != nil {
-		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
-		http.Error(w, "", http.StatusBadRequest)
+	//get user from request body
+	usr, err := getUser(w, r)
+	if err != nil {
 		return
 	}
 
@@ -78,47 +69,13 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//generate and sign jwt
-	tp, err := genTokenPair()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//store token pair in redis
-	err = storeTokenPair(a.rdb, dbUsr.Id, tp)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//marshal and return token pair
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if err = json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  tp.at.token,
-		"refresh_token": tp.rt.token,
-	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
+	_ = respondWithTP(a, dbUsr.Id, w)
 }
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
-	//unmarshal user
-	var usr models.User
-	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
-		http.Error(w, "", http.StatusBadRequest)
-		return
-	}
-
-	//validate user
-	if err := shared.Validate.Struct(usr); err != nil {
-		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
-		http.Error(w, "", http.StatusBadRequest)
+	//get the user from request body
+	usr, err := getUser(w, r)
+	if err != nil {
 		return
 	}
 
@@ -155,37 +112,11 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//generate token pair
-	tp, err := genTokenPair()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//store token pair in redis
-	err = storeTokenPair(a.rdb, id, tp)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//marshal and return token pair
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  tp.at.token,
-		"refresh_token": tp.rt.token,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-	}
+	_ = respondWithTP(a, id, w)
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	uuid := gcontext.GetUUID(r.Context())
-
 	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
 	if err != nil || deleted == 0 {
 		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
@@ -196,7 +127,6 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	uuid := gcontext.GetUUID(r.Context())
-
 	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
 	if err != nil || deleted == 0 {
 		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
@@ -205,33 +135,29 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := gcontext.GetUserID(r.Context())
-	tp, err := genTokenPair()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//store token pair in redis
-	err = storeTokenPair(a.rdb, userID, tp)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	//marshal and return token pair
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	err = json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  tp.at.token,
-		"refresh_token": tp.rt.token,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-	}
+	_ = respondWithTP(a, userID, w)
 }
 
-func genTokenPair() (*tokenPair, error) {
+func getUser(w http.ResponseWriter, r *http.Request) (models.User, error) {
+	//unmarshal user
+	var usr models.User
+	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
+		http.Error(w, "", http.StatusBadRequest)
+		return usr, err
+	}
+
+	//validate user
+	if err := shared.Validate.Struct(usr); err != nil {
+		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
+		http.Error(w, "", http.StatusBadRequest)
+		return usr, err
+	}
+
+	return usr, nil
+}
+
+func genTP() (*tokenPair, error) {
 	tp := &tokenPair{}
 	at, err := genToken(time.Now().Add(time.Minute * 15))
 	if err != nil {
@@ -266,7 +192,7 @@ func genToken(expires time.Time) (*tokenDetails, error) {
 	return td, nil
 }
 
-func storeTokenPair(rdb *redis.Client, userid int32, tp *tokenPair) error {
+func storeTP(rdb *redis.Client, userid int32, tp *tokenPair) error {
 	at := time.Unix(tp.at.expires, 0) //converting Unix to UTC(to Time object)
 	rt := time.Unix(tp.rt.expires, 0)
 	now := time.Now()
@@ -279,6 +205,37 @@ func storeTokenPair(rdb *redis.Client, userid int32, tp *tokenPair) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func respondWithTP(a *App, userID int32, w http.ResponseWriter) error {
+	//generate token pair
+	tp, err := genTP()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return err
+	}
+
+	//store token pair in redis
+	err = storeTP(a.rdb, userID, tp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return err
+	}
+
+	//marshal and return token pair
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err = json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  tp.at.token,
+		"refresh_token": tp.rt.token,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return err
+	}
+
 	return nil
 }
 
@@ -330,6 +287,7 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			return
 		}
 
+		//extract claims from jwt
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			fmt.Fprintf(os.Stderr, "Invalid token: %v", token)
@@ -337,6 +295,7 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			return
 		}
 
+		//get uuid from claims
 		uuid, ok := claims["uuid"].(string)
 		if !ok || uuid == "" {
 			fmt.Fprintf(os.Stderr, "Couldn't extract uuid from token: %v", token)
@@ -344,19 +303,20 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			return
 		}
 
-		uidStr, err := a.rdb.Get(context.Background(), uuid).Result()
+		//
+		userIDStr, err := a.rdb.Get(context.Background(), uuid).Result()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Access token invalid: %v", err)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
-		uid, err := strconv.ParseInt(uidStr, 10, 32)
+		userID, err := strconv.ParseInt(userIDStr, 10, 32)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Couldn't convert redis str to int32: %v", err)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
-		ctx := gcontext.WithUserID(r.Context(), int32(uid))
+		ctx := gcontext.WithUserID(r.Context(), int32(userID))
 		ctx = gcontext.WithUUID(ctx, uuid)
 		r = r.WithContext(ctx)
 
