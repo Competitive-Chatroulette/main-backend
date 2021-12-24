@@ -38,14 +38,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	var usr models.User
 	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
 	//validate user
 	if err := shared.Validate.Struct(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Release()
@@ -63,18 +63,18 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	//serialize db user or return 401 if they don't exist
 	var dbUsr models.User
 	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
-		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	} else if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	//validate password
 	if err = dbUsr.ValidatePass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "Pass is not correct: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	tp, err := genTokenPair(dbUsr.Id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	err = storeTokenPair(a.rdb, dbUsr.Id, tp)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		"refresh_token": tp.rt.token,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }
@@ -111,21 +111,21 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	var usr models.User
 	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
 	//validate user
 	if err := shared.Validate.Struct(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "", http.StatusBadRequest)
 		return
 	}
 
 	//generate salted pass hash
 	if err := usr.HashPass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "Can't hash the password: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Release()
@@ -145,12 +145,12 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	if err = row.Scan(&id); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			w.WriteHeader(http.StatusConflict)
+			http.Error(w, "", http.StatusConflict)
 		} else if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "", http.StatusBadRequest)
 		} else {
 			fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "", http.StatusInternalServerError)
 		}
 		return
 	}
@@ -159,7 +159,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	tp, err := genTokenPair(id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -167,7 +167,7 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	err = storeTokenPair(a.rdb, id, tp)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
 	if err != nil || deleted == 0 {
 		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
-		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 }
@@ -200,7 +200,7 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
 	if err != nil || deleted == 0 {
 		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
-		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
 
@@ -208,7 +208,7 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	tp, err := genTokenPair(userID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't gen token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -216,7 +216,7 @@ func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	err = storeTokenPair(a.rdb, userID, tp)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -289,13 +289,13 @@ func (a *App) withToken(next http.Handler) http.Handler {
 		tokenString := r.Header.Get("Authorization")
 		if len(tokenString) == 0 {
 			fmt.Fprintf(os.Stderr, "No token")
-			w.WriteHeader(http.StatusUnauthorized)
+			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 		splitToken := strings.Split(tokenString, "Bearer ")
 		if len(splitToken) < 2 {
 			fmt.Fprintf(os.Stderr, "Invalid bearer token")
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 		tokenString = splitToken[1]
@@ -311,7 +311,7 @@ func (a *App) withToken(next http.Handler) http.Handler {
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Invalid token: %v", err)
-			w.WriteHeader(http.StatusUnauthorized)
+			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 		//put jwt in context
@@ -327,34 +327,34 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 		token := gcontext.GetJwt(r.Context())
 		if token == nil {
 			fmt.Fprintf(os.Stderr, "Token didn't reach middleware: %v", token)
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			fmt.Fprintf(os.Stderr, "Invalid token: %v", token)
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 
 		uuid, ok := claims["uuid"].(string)
 		if !ok || uuid == "" {
 			fmt.Fprintf(os.Stderr, "Couldn't extract uuid from token: %v", token)
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 
 		uidStr, err := a.rdb.Get(context.Background(), uuid).Result()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Access token invalid: %v", err)
-			w.WriteHeader(http.StatusUnauthorized)
+			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 		uid, err := strconv.ParseInt(uidStr, 10, 32)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Couldn't convert redis str to int32: %v", err)
-			w.WriteHeader(http.StatusUnauthorized)
+			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 		usrCtx := gcontext.WithUserID(r.Context(), int32(uid))

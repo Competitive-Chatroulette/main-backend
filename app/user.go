@@ -26,18 +26,18 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	var usr models.User
 	if err = row.Scan(&usr.Id, &usr.Name, &usr.Email); err == pgx.ErrNoRows {
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "", http.StatusNotFound)
 		return
 	} else if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err = json.NewEncoder(w).Encode(usr); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }

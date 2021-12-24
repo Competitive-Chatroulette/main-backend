@@ -16,7 +16,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Release()
@@ -24,7 +24,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	rows, err := conn.Query(context.Background(), "SELECT id, name FROM categories")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT all: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -43,7 +43,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(os.Stderr, "Error while reading categories table: %s", err)
 
 		if len(categories) == 0 {
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -51,7 +51,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err = json.NewEncoder(w).Encode(categories); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }
@@ -67,7 +67,7 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Release()
@@ -77,18 +77,18 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 
 	var category models.Category
 	if err = row.Scan(&category.Id, &category.Name); err == pgx.ErrNoRows {
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "", http.StatusNotFound)
 		return
 	} else if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err = json.NewEncoder(w).Encode(category); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 }
