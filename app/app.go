@@ -2,24 +2,26 @@ package app
 
 import (
 	"context"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
-	"mmr/middleware"
 	"net/http"
 	"os"
 )
 
 type App struct {
-	r *mux.Router
-	p *pgxpool.Pool
+	r   *mux.Router
+	p   *pgxpool.Pool
+	rdb *redis.Client
 }
 
 func NewApp() *App {
-	app := &App{}
-	app.initDb()
-	app.initRoutes()
-	return app
+	a := &App{}
+	a.initDb()
+	a.initRedis()
+	a.initRoutes()
+	return a
 }
 
 func (a *App) Run() {
@@ -36,12 +38,27 @@ func (a *App) initDb() {
 	a.p = p
 }
 
+func (a *App) initRedis() {
+	dsn := os.Getenv("REDIS_DSN")
+	if len(dsn) == 0 {
+		dsn = "localhost:6379"
+	}
+	a.rdb = redis.NewClient(&redis.Options{
+		Addr: dsn,
+	})
+	_, err := a.rdb.Ping(context.Background()).Result()
+	if err != nil {
+		log.Fatal("Unable to connect to redis:", err)
+	}
+}
+
 func (a *App) initRoutes() {
 	a.r = mux.NewRouter()
 
 	//USER
 	userR := a.r.PathPrefix("/user").Subrouter()
-	userR.Use(middleware.Authentication)
+	userR.Use(a.withToken)
+	userR.Use(a.withClaims)
 	userR.HandleFunc("/", a.GetUser).Methods("GET")
 
 	//CATEGORIES
@@ -51,8 +68,13 @@ func (a *App) initRoutes() {
 
 	//AUTH
 	authR := a.r.PathPrefix("/auth").Subrouter()
-	authR.HandleFunc("/signin", a.SignIn).Methods("POST")
-	authR.HandleFunc("/signup", a.SignUp).Methods("POST")
+	authR.HandleFunc("/login", a.login).Methods("POST")
+	authR.HandleFunc("/register", a.register).Methods("POST")
+	tauthR := a.r.PathPrefix("/auth").Subrouter()
+	tauthR.Use(a.withToken)
+	tauthR.Use(a.withClaims)
+	tauthR.HandleFunc("/logout", a.logout).Methods("POST")
+	tauthR.HandleFunc("/refresh", a.refresh).Methods("POST")
 
 	http.Handle("/", a.r)
 }

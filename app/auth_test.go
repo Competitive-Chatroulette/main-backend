@@ -1,19 +1,18 @@
-package tests
+package app
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"mmr/app"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-var a = app.NewApp()
+var a = NewApp()
 
-func TestSignup(t *testing.T) {
+func TestRegister(t *testing.T) {
 	tt := []struct {
 		name       string
 		method     string
@@ -78,10 +77,10 @@ func TestSignup(t *testing.T) {
 				t.Fatal("Can't marshal the user", err)
 			}
 
-			request := httptest.NewRequest(tc.method, "/auth/signup", bytes.NewReader(body))
+			request := httptest.NewRequest(tc.method, "/auth/register", bytes.NewReader(body))
 			responseRecorder := httptest.NewRecorder()
 
-			a.SignUp(responseRecorder, request)
+			a.r.ServeHTTP(responseRecorder, request)
 			defer conn.Exec(context.Background(), "DELETE FROM users WHERE email = $1", tc.user.Email)
 
 			//Status is correct
@@ -89,13 +88,15 @@ func TestSignup(t *testing.T) {
 				t.Errorf("Want status '%d', got '%d'", tc.statusCode, responseRecorder.Code)
 			}
 
-			//Token is returned
-			if tc.willAdd && responseRecorder.Body.Len() == 0 {
-				t.Errorf("Token was not returned")
+			//token is returned
+			resBody := make(map[string]string)
+			json.Unmarshal(responseRecorder.Body.Bytes(), &resBody)
+			if tc.willAdd && (len(resBody["access_token"]) == 0 || len(resBody["refresh_token"]) == 0) {
+				t.Error("token was not returned: ", resBody)
 			}
 
 			//User was added to DB
-			usersAfter := countUsers(conn, t)
+			usersAfter := countUsers(conn, t) //TODO: another test goroutine could add a user before this call
 			if (tc.willAdd && usersBefore+1 != usersAfter) ||
 				(!tc.willAdd && usersBefore != usersAfter) {
 				t.Errorf("Unexpected user count. Users before '%d', users after '%d'", usersBefore, usersAfter)
@@ -104,7 +105,7 @@ func TestSignup(t *testing.T) {
 	}
 }
 
-func TestSignin(t *testing.T) {
+func TestLogin(t *testing.T) {
 	tt := []struct {
 		name       string
 		method     string
@@ -160,19 +161,21 @@ func TestSignin(t *testing.T) {
 				t.Fatal("Can't marshal the user", err)
 			}
 
-			request := httptest.NewRequest(tc.method, "/auth/signin", bytes.NewReader(body))
+			request := httptest.NewRequest(tc.method, "/auth/login", bytes.NewReader(body))
 			responseRecorder := httptest.NewRecorder()
 
-			a.SignIn(responseRecorder, request)
+			a.r.ServeHTTP(responseRecorder, request)
 
 			//Status is correct
 			if responseRecorder.Code != tc.statusCode {
 				t.Errorf("Want status '%d', got '%d'", tc.statusCode, responseRecorder.Code)
 			}
 
-			//Token is returned
-			if tc.needsToken && responseRecorder.Body.Len() == 0 {
-				t.Errorf("Token was not returned")
+			//token is returned
+			resBody := make(map[string]string)
+			json.Unmarshal(responseRecorder.Body.Bytes(), &resBody)
+			if tc.needsToken && (len(resBody["access_token"]) == 0 || len(resBody["refresh_token"]) == 0) {
+				t.Error("token was not returned: ", resBody)
 			}
 		})
 	}

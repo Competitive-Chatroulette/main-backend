@@ -40,7 +40,7 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	//if none of the categories were scanned, return 500; else return what was successfully scanned
 	if err := rows.Err(); err != nil {
 		//log scanning errors
-		fmt.Fprintf(os.Stderr, "Error while reading categories table: ", err)
+		fmt.Fprintf(os.Stderr, "Error while reading categories table: %s", err)
 
 		if len(categories) == 0 {
 			w.WriteHeader(http.StatusInternalServerError)
