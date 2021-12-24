@@ -254,9 +254,8 @@ func genToken(userId int32, expires time.Time) (*tokenDetails, error) {
 	td.uuid = uuid.NewString()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": userId,
-		"uuid":    td.uuid,
-		"exp":     td.expires,
+		"uuid": td.uuid,
+		"exp":  td.expires,
 	})
 	var err error
 	td.token, err = token.SignedString([]byte(os.Getenv("JWT_SECRET")))
@@ -357,9 +356,9 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
-		usrCtx := gcontext.WithUserID(r.Context(), int32(uid))
-		uuidCtx := gcontext.WithUUID(usrCtx, uuid)
-		r = r.WithContext(uuidCtx)
+		ctx := gcontext.WithUserID(r.Context(), int32(uid))
+		ctx = gcontext.WithUUID(ctx, uuid)
+		r = r.WithContext(ctx)
 
 		next.ServeHTTP(w, r)
 	})
