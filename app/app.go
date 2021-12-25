@@ -18,27 +18,15 @@ type App struct {
 
 func NewApp() *App {
 	a := &App{}
-	a.initDb()
-	a.initRedis()
-	a.initRoutes()
-	return a
-}
 
-func (a *App) Run() {
-	defer a.p.Close()
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func (a *App) initDb() {
+	//init pool
 	p, err := pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal("Unable to connect to database:", err)
 	}
-
 	a.p = p
-}
 
-func (a *App) initRedis() {
+	//init redis
 	dsn := os.Getenv("REDIS_DSN")
 	if len(dsn) == 0 {
 		dsn = "localhost:6379"
@@ -46,10 +34,19 @@ func (a *App) initRedis() {
 	a.rdb = redis.NewClient(&redis.Options{
 		Addr: dsn,
 	})
-	_, err := a.rdb.Ping(context.Background()).Result()
+	_, err = a.rdb.Ping(context.Background()).Result()
 	if err != nil {
 		log.Fatal("Unable to connect to redis:", err)
 	}
+
+	a.initRoutes()
+
+	return a
+}
+
+func (a *App) Run() {
+	defer a.p.Close()
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func (a *App) initRoutes() {
