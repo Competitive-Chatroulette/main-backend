@@ -10,19 +10,19 @@ type CError interface {
 	Error() string
 }
 
-type NotUnique struct {
+type Exists struct {
 	StatusCode int
 	Field      string
 }
 
-func (e NotUnique) GetStatusCode() int {
+func (e Exists) GetStatusCode() int {
 	return e.StatusCode
 }
-func (e NotUnique) Error() string {
+func (e Exists) Error() string {
 	return fmt.Sprintf("%s already taken", e.Field)
 }
-func NewNotUnique(field string) NotUnique {
-	return NotUnique{
+func NewExists(field string) Exists {
+	return Exists{
 		StatusCode: http.StatusConflict,
 		Field:      field,
 	}
@@ -38,8 +38,8 @@ func (e Internal) GetStatusCode() int {
 func (e Internal) Error() string {
 	return fmt.Sprintf("Unexpected error occured")
 }
-func NewInternal() NotUnique {
-	return NotUnique{
+func NewInternal() Exists {
+	return Exists{
 		StatusCode: http.StatusInternalServerError,
 	}
 }

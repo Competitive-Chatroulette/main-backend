@@ -36,7 +36,7 @@ func (usr *User) Create(user *models.User) (int32, cerr.CError) {
 	if err = row.Scan(&userID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return 0, cerr.NewNotUnique(pgErr.ColumnName)
+			return 0, cerr.NewExists(pgErr.ColumnName)
 		} else {
 			fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
 			return 0, cerr.NewInternal()
@@ -55,14 +55,14 @@ func (usr *User) FindById(userID int32) (*models.User, cerr.CError) {
 
 	row := conn.QueryRow(context.Background(),
 		"SELECT id, name, email FROM users WHERE id = $1", userID)
-	var dbUsr *models.User
-	if err = row.Scan(dbUsr.Id, dbUsr.Name, dbUsr.Email); err == pgx.ErrNoRows {
+	var dbUsr models.User
+	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email); err == pgx.ErrNoRows {
 		return nil, cerr.NewNotFound("user")
 	} else if err != nil {
 		return nil, cerr.NewInternal()
 	}
 
-	return dbUsr, nil
+	return &dbUsr, nil
 }
 
 func (usr *User) FindByEmail(email string) (*models.User, cerr.CError) {
@@ -74,12 +74,12 @@ func (usr *User) FindByEmail(email string) (*models.User, cerr.CError) {
 
 	row := conn.QueryRow(context.Background(),
 		"SELECT id, name, email, pass FROM users WHERE email = $1", email)
-	var dbUsr *models.User
-	if err = row.Scan(dbUsr.Id, dbUsr.Name, dbUsr.Email, dbUsr.Pass); err == pgx.ErrNoRows {
+	var dbUsr models.User
+	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
 		return nil, cerr.NewNotFound("email")
 	} else if err != nil {
 		return nil, cerr.NewInternal()
 	}
 
-	return dbUsr, nil
+	return &dbUsr, nil
 }
