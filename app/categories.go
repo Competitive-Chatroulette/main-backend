@@ -1,18 +1,6 @@
 package app
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
-	"mmr/models"
-	"net/http"
-	"os"
-	"strconv"
-)
-
-func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
+/*func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	conn, err := a.p.Acquire(context.Background())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
@@ -91,4 +79,4 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
-}
+}*/

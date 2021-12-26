@@ -3,15 +3,11 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v4"
 	gcontext "mmr/context"
 	"mmr/models"
 	"mmr/shared"
@@ -41,24 +37,9 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//find user in db
-	conn, err := a.p.Acquire(context.Background())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
-	row := conn.QueryRow(context.Background(),
-		"SELECT id, name, email, pass FROM users WHERE email = $1", usr.Email)
-
-	//marshal db user or return 401 if none was found
-	var dbUsr models.User
-	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
-		http.Error(w, "", http.StatusUnauthorized)
-		return
-	} else if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to SELECT: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+	dbUsr, cerr := a.usrSvc.FindByEmail(usr.Email)
+	if cerr != nil {
+		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
@@ -80,37 +61,20 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//generate salted pass hash
-	if err := usr.HashPass(usr.Pass); err != nil {
+	if err = usr.HashPass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "Can't hash the password: %v\n", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	//add user to db, get their id
-	conn, err := a.p.Acquire(context.Background())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
-	row := conn.QueryRow(context.Background(),
-		"INSERT INTO users(name, email, pass) VALUES ($1, $2, $3) RETURNING id", usr.Name, usr.Email, usr.Pass)
-	var id int32
-	if err = row.Scan(&id); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			http.Error(w, "", http.StatusConflict)
-		} else if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation {
-			http.Error(w, "", http.StatusBadRequest)
-		} else {
-			fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
-			http.Error(w, "", http.StatusInternalServerError)
-		}
+	userID, cerr := a.usrSvc.Create(&usr)
+	if cerr != nil {
+		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
-	_ = respondWithTP(a, id, w)
+	_ = respondWithTP(a, userID, w)
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {

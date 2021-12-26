@@ -4,13 +4,47 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"log"
+	"mmr/services"
+	postgresql "mmr/services/repositories"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
-var a = NewApp()
+func svcF() *services.User {
+	//init service
+	p, err := pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal("Unable to connect to database:", err)
+	}
+	repo := postgresql.NewUser(p)
+	svc := services.NewUser(repo)
+
+	return svc
+}
+
+func rdbF() *redis.Client {
+	//init redis
+	dsn := os.Getenv("REDIS_DSN")
+	if len(dsn) == 0 {
+		dsn = "localhost:6379"
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr: dsn,
+	})
+	_, err := rdb.Ping(context.Background()).Result()
+	if err != nil {
+		log.Fatal("Unable to connect to redis:", err)
+	}
+
+	return rdb
+}
+
+var a = NewApp(svcF(), rdbF())
 
 func TestRegister(t *testing.T) {
 	tt := []struct {
@@ -128,7 +162,7 @@ func TestLogin(t *testing.T) {
 				Pass:  "123456",
 			},
 			needsToken: false,
-			statusCode: http.StatusUnauthorized,
+			statusCode: http.StatusNotFound,
 		},
 		{
 			name:   "with missing password",
