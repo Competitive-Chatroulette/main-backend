@@ -30,20 +30,17 @@ type tokenDetails struct {
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
-	//get user from request body
 	usr, err := getUser(w, r)
 	if err != nil {
 		return
 	}
 
-	//find user in db
 	dbUsr, cerr := a.usrSvc.FindByEmail(usr.Email)
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
-	//validate password
 	if err = dbUsr.ValidatePass(usr.Pass); err != nil {
 		fmt.Fprintf(os.Stderr, "incorrect password : %v\n", err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -54,7 +51,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
-	//get user from request body
 	usr, err := getUser(w, r)
 	if err != nil {
 		return
@@ -67,7 +63,6 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//add user to db, get their id
 	userID, cerr := a.usrSvc.Create(&usr)
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
@@ -111,8 +106,8 @@ func getUser(w http.ResponseWriter, r *http.Request) (models.User, error) {
 
 	//validate user
 	if err := shared.Validate.Struct(usr); err != nil {
-		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err.(validator.ValidationErrors))
-		http.Error(w, "", http.StatusBadRequest)
+		fmt.Fprintf(os.Stderr, "%v\n", err.(validator.ValidationErrors))
+		http.Error(w, "Invalid data", http.StatusBadRequest)
 		return usr, err
 	}
 
