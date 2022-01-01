@@ -34,7 +34,7 @@ func main() {
 	usrSvc := services.NewUser(usrRepo)
 	ctgRepo := pgRepos.NewCategory(p)
 	ctgSvc := services.NewCategory(ctgRepo)
-	tokenRepo := memRepos.NewToken()
+	tokenRepo := memRepos.NewToken(make(map[string]int32))
 	authSvc := services.NewAuth(usrRepo, tokenRepo)
 
 	a := app.NewApp(usrSvc, ctgSvc, authSvc)
