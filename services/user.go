@@ -21,10 +21,6 @@ func NewUser(repo UserRepository) *User {
 	}
 }
 
-func (usr *User) Create(user *models.User) (int32, Cerr.CError) {
-	return usr.repo.Create(user)
-}
-
 func (usr *User) Find(userID int32) (*models.User, Cerr.CError) {
 	dbUsr, cerr := usr.repo.FindById(userID)
 	if cerr != nil {
