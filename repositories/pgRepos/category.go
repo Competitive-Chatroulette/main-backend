@@ -1,4 +1,4 @@
-package postgresql
+package pgRepos
 
 import (
 	"context"
@@ -21,14 +21,14 @@ func NewCategory(p *pgxpool.Pool) *Category {
 }
 
 func (ctg *Category) List() ([]models.Category, cerr.CError) {
-	conn, err := ctg.p.Acquire(context.Background())
+	conn, err := ctg.p.Acquire(context.TODO())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		return nil, cerr.NewInternal()
 	}
 	defer conn.Release()
 
-	rows, err := conn.Query(context.Background(), "SELECT id, name FROM categories")
+	rows, err := conn.Query(context.TODO(), "SELECT id, name FROM categories")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to SELECT categories: %v\n", err)
 		return nil, cerr.NewInternal()
@@ -57,14 +57,14 @@ func (ctg *Category) List() ([]models.Category, cerr.CError) {
 }
 
 func (ctg *Category) Get(id int32) (*models.Category, cerr.CError) {
-	conn, err := ctg.p.Acquire(context.Background())
+	conn, err := ctg.p.Acquire(context.TODO())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to acquire a database connection: %v\n", err)
 		return nil, cerr.NewInternal()
 	}
 	defer conn.Release()
 
-	row := conn.QueryRow(context.Background(),
+	row := conn.QueryRow(context.TODO(),
 		"SELECT id, name FROM categories WHERE id = $1", id)
 
 	var category models.Category

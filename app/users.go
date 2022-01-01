@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
+func (a *App) getMe(w http.ResponseWriter, r *http.Request) {
 	userID := gcontext.GetUserID(r.Context())
 	dbUsr, cerr := a.usrSvc.FindById(userID)
 	if cerr != nil {
@@ -17,7 +17,7 @@ func (a *App) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if err := json.NewEncoder(w).Encode(dbUsr); err != nil {
+	if err := json.NewEncoder(w).Encode(&dbUsr); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
 		return

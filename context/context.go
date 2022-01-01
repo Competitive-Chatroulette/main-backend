@@ -2,7 +2,7 @@ package context
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt"
+	"mmr/models"
 )
 
 type contextKey string
@@ -12,9 +12,9 @@ func (c contextKey) String() string {
 }
 
 const (
-	jwtKey    = contextKey("jwt")
 	uuidKey   = contextKey("uuid")
 	userIDKey = contextKey("user_id")
+	userKey   = contextKey("user")
 )
 
 func GetUserID(ctx context.Context) int32 {
@@ -26,13 +26,13 @@ func WithUserID(ctx context.Context, userID int32) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }
 
-func GetJwt(ctx context.Context) *jwt.Token {
-	jwt, _ := ctx.Value(jwtKey).(*jwt.Token)
-	return jwt
+func GetUser(ctx context.Context) *models.User {
+	usr, _ := ctx.Value(userKey).(models.User)
+	return &usr
 }
 
-func WithJwt(ctx context.Context, token *jwt.Token) context.Context {
-	return context.WithValue(ctx, jwtKey, token)
+func WithUser(ctx context.Context, usr *models.User) context.Context {
+	return context.WithValue(ctx, userKey, *usr)
 }
 
 func GetUUID(ctx context.Context) string {

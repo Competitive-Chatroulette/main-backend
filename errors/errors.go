@@ -61,3 +61,21 @@ func NewNotFound(field string) NotFound {
 		Field:      field,
 	}
 }
+
+type Unauthorized struct {
+	StatusCode int
+	Field      string
+}
+
+func (e Unauthorized) GetStatusCode() int {
+	return e.StatusCode
+}
+func (e Unauthorized) Error() string {
+	return fmt.Sprintf("Incorrect %s ", e.Field)
+}
+func NewUnauthorized(field string) Unauthorized {
+	return Unauthorized{
+		StatusCode: http.StatusUnauthorized,
+		Field:      field,
+	}
+}

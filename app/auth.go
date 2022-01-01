@@ -1,202 +1,110 @@
 package app
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt"
-	"github.com/google/uuid"
 	gcontext "mmr/context"
 	"mmr/models"
 	"mmr/shared"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 )
 
-type tokenPair struct {
-	at *tokenDetails
-	rt *tokenDetails
-}
-
-type tokenDetails struct {
-	token   string
-	uuid    string
-	expires int64
-}
-
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
-	usr, err := getUser(w, r)
-	if err != nil {
-		return
-	}
-
-	dbUsr, cerr := a.usrSvc.FindByEmail(usr.Email)
+	usr := gcontext.GetUser(r.Context())
+	at, rt, cerr := a.authSvc.Login(usr)
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
-	if err = dbUsr.ValidatePass(usr.Pass); err != nil {
-		fmt.Fprintf(os.Stderr, "incorrect password : %v\n", err)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  at,
+		"refresh_token": rt,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
-		return
 	}
-
-	_ = respondWithTP(a, dbUsr.Id, w)
 }
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
-	usr, err := getUser(w, r)
-	if err != nil {
-		return
-	}
-
-	//generate salted pass hash
-	if err = usr.HashPass(usr.Pass); err != nil {
-		fmt.Fprintf(os.Stderr, "Can't hash the password: %v\n", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	userID, cerr := a.usrSvc.Create(&usr)
+	usr := gcontext.GetUser(r.Context())
+	at, rt, cerr := a.authSvc.Register(usr)
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
-	_ = respondWithTP(a, userID, w)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if err := json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  at,
+		"refresh_token": rt,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
+		http.Error(w, "", http.StatusInternalServerError)
+	}
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	uuid := gcontext.GetUUID(r.Context())
-	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
-	if err != nil || deleted == 0 {
-		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
-		http.Error(w, "", http.StatusUnauthorized)
+	cerr := a.authSvc.Logout(uuid)
+	if cerr != nil {
+		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (a *App) refresh(w http.ResponseWriter, r *http.Request) {
 	uuid := gcontext.GetUUID(r.Context())
-	deleted, err := a.rdb.Del(context.Background(), uuid).Result()
-	if err != nil || deleted == 0 {
-		fmt.Fprintf(os.Stderr, "Couldn't delete token from redis: %v", err)
-		http.Error(w, "", http.StatusUnauthorized)
+	userID := gcontext.GetUserID(r.Context())
+	at, rt, cerr := a.authSvc.Refresh(uuid, userID)
+	if cerr != nil {
+		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return
 	}
 
-	userID := gcontext.GetUserID(r.Context())
-	_ = respondWithTP(a, userID, w)
-}
-
-func getUser(w http.ResponseWriter, r *http.Request) (models.User, error) {
-	//unmarshal user
-	var usr models.User
-	if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
-		http.Error(w, "", http.StatusBadRequest)
-		return usr, err
-	}
-
-	//validate user
-	if err := shared.Validate.Struct(usr); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err.(validator.ValidationErrors))
-		http.Error(w, "Invalid data", http.StatusBadRequest)
-		return usr, err
-	}
-
-	return usr, nil
-}
-
-func genTP() (*tokenPair, error) {
-	tp := &tokenPair{}
-	at, err := genToken(time.Now().Add(time.Minute * 15))
-	if err != nil {
-		return nil, err
-	}
-	tp.at = at
-
-	rt, err := genToken(time.Now().Add(time.Hour * 24 * 7))
-	if err != nil {
-		return nil, err
-	}
-	tp.rt = rt
-
-	return tp, nil
-}
-
-func genToken(expires time.Time) (*tokenDetails, error) {
-	td := &tokenDetails{}
-	td.expires = expires.Unix()
-	td.uuid = uuid.NewString()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"uuid": td.uuid,
-		"exp":  td.expires,
-	})
-	var err error
-	td.token, err = token.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	if err != nil {
-		return nil, err
-	}
-
-	return td, nil
-}
-
-func storeTP(rdb *redis.Client, userid int32, tp *tokenPair) error {
-	at := time.Unix(tp.at.expires, 0) //converting Unix to UTC(to Time object)
-	rt := time.Unix(tp.rt.expires, 0)
-	now := time.Now()
-
-	err := rdb.Set(context.Background(), tp.at.uuid, strconv.Itoa(int(userid)), at.Sub(now)).Err()
-	if err != nil {
-		return err
-	}
-	err = rdb.Set(context.Background(), tp.rt.uuid, strconv.Itoa(int(userid)), rt.Sub(now)).Err()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func respondWithTP(a *App, userID int32, w http.ResponseWriter) error {
-	//generate token pair
-	tp, err := genTP()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't sign token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return err
-	}
-
-	//store token pair in redis
-	err = storeTP(a.rdb, userID, tp)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't store token: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return err
-	}
-
-	//marshal and return token pair
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	if err = json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  tp.at.token,
-		"refresh_token": tp.rt.token,
+	if err := json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  at,
+		"refresh_token": rt,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
-		return err
 	}
-
-	return nil
 }
 
-func (a *App) withToken(next http.Handler) http.Handler {
+func (a *App) withValidatedUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//unmarshal user
+		var usr models.User
+		if err := json.NewDecoder(r.Body).Decode(&usr); err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid request: %v\n", err)
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+
+		//validate user
+		if err := shared.Validate.Struct(usr); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err.(validator.ValidationErrors))
+			http.Error(w, "Invalid data", http.StatusBadRequest)
+			return
+		}
+		//put user in context
+		ctx := gcontext.WithUser(r.Context(), &usr)
+
+		r = r.WithContext(ctx)
+		next.ServeHTTP(w, r)
+	})
+}
+
+//withClaims is a middleware that parses and validates jwt, inserts token uuid and userID into request context
+func (a *App) withClaims(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		//extract jwt from header
 		tokenString := r.Header.Get("Authorization")
@@ -227,22 +135,6 @@ func (a *App) withToken(next http.Handler) http.Handler {
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
-		//put jwt in context
-		ctx := gcontext.WithJwt(r.Context(), token)
-		r = r.WithContext(ctx)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (a *App) withClaims(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := gcontext.GetJwt(r.Context())
-		if token == nil { //TODO: In what world does this happen
-			fmt.Fprintf(os.Stderr, "Token didn't reach middleware: %v", token)
-			http.Error(w, "", http.StatusInternalServerError)
-			return
-		}
 
 		//extract claims from jwt
 		claims, ok := token.Claims.(jwt.MapClaims)
@@ -259,24 +151,19 @@ func (a *App) withClaims(next http.Handler) http.Handler {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
+		//put uuid in context
+		ctx := gcontext.WithUUID(r.Context(), uuid)
 
-		//get userID from redis
-		userIDStr, err := a.rdb.Get(context.Background(), uuid).Result()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Access token invalid: %v", err)
-			http.Error(w, "", http.StatusUnauthorized)
+		//get userID from tokenRepo storage. this is mainly for checking if access token is valid, i.e. still in storage
+		userID, cerr := a.authSvc.GetUserID(uuid)
+		if cerr != nil {
+			http.Error(w, cerr.Error(), cerr.GetStatusCode())
 			return
 		}
-		userID, err := strconv.ParseInt(userIDStr, 10, 32)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Couldn't convert redis str to int32: %v", err)
-			http.Error(w, "", http.StatusUnauthorized)
-			return
-		}
-		ctx := gcontext.WithUserID(r.Context(), int32(userID))
-		ctx = gcontext.WithUUID(ctx, uuid)
+		//put userID in context
+		ctx = gcontext.WithUserID(ctx, userID)
+
 		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
 }

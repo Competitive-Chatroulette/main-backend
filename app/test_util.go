@@ -32,7 +32,7 @@ func (_db *db) init(t *testing.T) {
 }
 
 func (_db *db) initP() {
-	p, err := pgxpool.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	p, err := pgxpool.Connect(context.TODO(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		_db.t.Fatal("Unable to connect to database:", err)
 	}
@@ -41,7 +41,7 @@ func (_db *db) initP() {
 }
 
 func (_db *db) getConn() (*pgxpool.Conn, func()) {
-	conn, err := _db.p.Acquire(context.Background())
+	conn, err := _db.p.Acquire(context.TODO())
 	if err != nil {
 		_db.t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func (_db *db) fillDb() {
 	defer release()
 
 	pass := hashPass(validUser.Pass, _db.t)
-	_, err := conn.Exec(context.Background(), "INSERT INTO users(name, email, pass) VALUES($1, $2, $3)", validUser.Name, validUser.Email, pass)
+	_, err := conn.Exec(context.TODO(), "INSERT INTO users(name, email, pass) VALUES($1, $2, $3)", validUser.Name, validUser.Email, pass)
 	if err != nil {
 		_db.t.Fatal("Could not insert user", err)
 	}
@@ -63,7 +63,7 @@ func (_db *db) clearDb() {
 	conn, release := _db.getConn()
 	defer release()
 
-	_, err := conn.Exec(context.Background(), "DELETE FROM users WHERE email=$1", validUser.Email)
+	_, err := conn.Exec(context.TODO(), "DELETE FROM users WHERE email=$1", validUser.Email)
 	if err != nil {
 		_db.t.Fatal("Could not cleanup user", err)
 	}

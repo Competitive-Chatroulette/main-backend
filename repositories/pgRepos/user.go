@@ -1,4 +1,4 @@
-package postgresql
+package pgRepos
 
 import (
 	"context"
@@ -24,19 +24,19 @@ func NewUser(p *pgxpool.Pool) *User {
 }
 
 func (usr *User) Create(user *models.User) (int32, cerr.CError) {
-	conn, err := usr.p.Acquire(context.Background())
+	conn, err := usr.p.Acquire(context.TODO())
 	if err != nil {
 		return 0, cerr.NewInternal()
 	}
 	defer conn.Release()
 
-	row := conn.QueryRow(context.Background(),
+	row := conn.QueryRow(context.TODO(),
 		"INSERT INTO users(name, email, pass) VALUES ($1, $2, $3) RETURNING id", user.Name, user.Email, user.Pass)
 	var userID int32
 	if err = row.Scan(&userID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return 0, cerr.NewExists(pgErr.ColumnName)
+			return 0, cerr.NewExists("email")
 		} else {
 			fmt.Fprintf(os.Stderr, "Unable to INSERT: %v", err)
 			return 0, cerr.NewInternal()
@@ -47,13 +47,13 @@ func (usr *User) Create(user *models.User) (int32, cerr.CError) {
 }
 
 func (usr *User) FindById(userID int32) (*models.User, cerr.CError) {
-	conn, err := usr.p.Acquire(context.Background())
+	conn, err := usr.p.Acquire(context.TODO())
 	if err != nil {
 		return nil, cerr.NewInternal()
 	}
 	defer conn.Release()
 
-	row := conn.QueryRow(context.Background(),
+	row := conn.QueryRow(context.TODO(),
 		"SELECT id, name, email FROM users WHERE id = $1", userID)
 	var dbUsr models.User
 	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email); err == pgx.ErrNoRows {
@@ -66,13 +66,13 @@ func (usr *User) FindById(userID int32) (*models.User, cerr.CError) {
 }
 
 func (usr *User) FindByEmail(email string) (*models.User, cerr.CError) {
-	conn, err := usr.p.Acquire(context.Background())
+	conn, err := usr.p.Acquire(context.TODO())
 	if err != nil {
 		return nil, cerr.NewInternal()
 	}
 	defer conn.Release()
 
-	row := conn.QueryRow(context.Background(),
+	row := conn.QueryRow(context.TODO(),
 		"SELECT id, name, email, pass FROM users WHERE email = $1", email)
 	var dbUsr models.User
 	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {

@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
+func (a *App) listCategories(w http.ResponseWriter, r *http.Request) {
 	ctgs, cerr := a.ctgSvc.List()
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
@@ -19,11 +19,10 @@ func (a *App) ListCategories(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(ctgs); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
-		return
 	}
 }
 
-func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
+func (a *App) getCategory(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 32)
 	if err != nil {
@@ -40,6 +39,5 @@ func (a *App) GetCategory(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(ctg); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to encode json: %v", err)
 		http.Error(w, "", http.StatusInternalServerError)
-		return
 	}
 }
