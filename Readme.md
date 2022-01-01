@@ -8,6 +8,7 @@
 - [ ] Chatting via websockets
 - [ ] Logging
 - [ ] Tests
+- [ ] Configuration
 - [ ] Docker
 
 # Endpoints
