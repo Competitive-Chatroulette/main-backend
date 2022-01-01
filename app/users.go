@@ -10,7 +10,7 @@ import (
 
 func (a *App) getMe(w http.ResponseWriter, r *http.Request) {
 	userID := gcontext.GetUserID(r.Context())
-	dbUsr, cerr := a.usrSvc.FindById(userID)
+	dbUsr, cerr := a.usrSvc.Find(userID)
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
 		return

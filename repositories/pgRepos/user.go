@@ -54,9 +54,9 @@ func (usr *User) FindById(userID int32) (*models.User, cerr.CError) {
 	defer conn.Release()
 
 	row := conn.QueryRow(context.TODO(),
-		"SELECT id, name, email FROM users WHERE id = $1", userID)
+		"SELECT id, name, email, pass FROM users WHERE id = $1", userID)
 	var dbUsr models.User
-	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email); err == pgx.ErrNoRows {
+	if err = row.Scan(&dbUsr.Id, &dbUsr.Name, &dbUsr.Email, &dbUsr.Pass); err == pgx.ErrNoRows {
 		return nil, cerr.NewNotFound("user")
 	} else if err != nil {
 		return nil, cerr.NewInternal()

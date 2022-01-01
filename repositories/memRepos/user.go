@@ -23,6 +23,7 @@ func NewUser(storage map[int32]models.User, startID int32) *User {
 func (usr *User) Create(user *models.User) (int32, Cerr.CError) {
 	usr.mu.Lock()
 	defer usr.mu.Unlock()
+	user.Id = usr.currentID
 	usr.storage[usr.currentID] = *user
 	usr.currentID += 1
 

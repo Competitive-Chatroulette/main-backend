@@ -1,14 +1,14 @@
 package services
 
 import (
-	cerr "mmr/errors"
+	Cerr "mmr/errors"
 	"mmr/models"
 )
 
 type UserRepository interface {
-	Create(user *models.User) (int32, cerr.CError)
-	FindById(userID int32) (*models.User, cerr.CError)
-	FindByEmail(email string) (*models.User, cerr.CError)
+	Create(user *models.User) (int32, Cerr.CError)
+	FindById(userID int32) (*models.User, Cerr.CError)
+	FindByEmail(email string) (*models.User, Cerr.CError)
 }
 
 type User struct {
@@ -21,14 +21,18 @@ func NewUser(repo UserRepository) *User {
 	}
 }
 
-func (usr *User) Create(user *models.User) (int32, cerr.CError) {
+func (usr *User) Create(user *models.User) (int32, Cerr.CError) {
 	return usr.repo.Create(user)
 }
 
-func (usr *User) FindById(userID int32) (*models.User, cerr.CError) {
-	return usr.repo.FindById(userID)
-}
+func (usr *User) Find(userID int32) (*models.User, Cerr.CError) {
+	dbUsr, cerr := usr.repo.FindById(userID)
+	if cerr != nil {
+		return nil, cerr
+	}
 
-func (usr *User) FindByEmail(email string) (*models.User, cerr.CError) {
-	return usr.repo.FindByEmail(email)
+	//remove password from the model
+	dbUsr.Pass = ""
+
+	return dbUsr, nil
 }
