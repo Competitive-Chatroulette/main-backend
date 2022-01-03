@@ -22,7 +22,7 @@ func (ctg *Category) List() ([]models.Category, Cerr.CError) {
 	ctg.mu.Lock()
 	defer ctg.mu.Unlock()
 
-	categories := make([]models.Category, len(ctg.storage))
+	categories := make([]models.Category, 0, len(ctg.storage))
 	for _, category := range ctg.storage {
 		categories = append(categories, category)
 	}
