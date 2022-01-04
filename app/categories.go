@@ -13,6 +13,7 @@ func (a *App) listCategories(w http.ResponseWriter, r *http.Request) {
 	ctgs, cerr := a.ctgSvc.List()
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -33,6 +34,7 @@ func (a *App) getCategory(w http.ResponseWriter, r *http.Request) {
 	ctg, cerr := a.ctgSvc.Get(int32(id))
 	if cerr != nil {
 		http.Error(w, cerr.Error(), cerr.GetStatusCode())
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
