@@ -10,6 +10,8 @@
 - [ ] Tests
 - [ ] Configuration
 - [ ] Docker
+- [ ] Caching
+- [ ] i18n
 
 # Endpoints
 **/auth** 
